@@ -1,6 +1,4 @@
-from py_pdf_parser.exceptions import PageNotFoundError, NoElementFoundError
-from py_pdf_parser.loaders import load_file
-#from py_pdf_parser.visualise import visualise
+import PyPDF2
 import docx
 from docx2pdf import convert
 from odf import text, teletype
@@ -9,6 +7,8 @@ import colorama
 from colorama import Fore
 import os
 import re
+import banWord
+import shutil
 
 colorama.init(autoreset=True)
 supported = [".pdf", ".docx", ".odt"]
@@ -16,15 +16,16 @@ directory = "cvs"
 
 def load_pdf(f):
     if os.path.isfile(f):
-        try:
-            document = load_file(f)
-            to_element = document.elements.filter_by_text_equal("Profile").extract_single_element()
-            to_text = document.elements.to_the_right_of(to_element).extract_single_element().text()
+        with open(f, 'rb') as fl:
+            pdf = PyPDF2.PdfReader(fl)
+            num_pages = len(pdf.pages)
+            full_text = ""
+            for i in range(num_pages):
+                page = pdf.pages[i]
+                text = page.extract_text()
+                full_text += text
             print(Fore.GREEN + f"{f} loaded!")
-            return(to_text.strip() + "\n")
-        except (PageNotFoundError, NoElementFoundError):
-            print(Fore.RED + f"{f} corrupted")
-            return None
+            return full_text
         
 def load_docx(f):
     doc = docx.Document(f)
@@ -36,7 +37,7 @@ def load_docx(f):
         if full != ['']:
             return full[0].strip()
         if os.path.isfile(f"{f}.pdf"):
-            return Fore.YELLOW + "Converted to .pdf"
+            print(Fore.YELLOW + "Converted to .pdf")
         else:
             convert(f, f"{f}.pdf")
             print(Fore.YELLOW + "Converted to .pdf")
@@ -61,16 +62,25 @@ def if_match(f):
         result = re.search(f'{i}$', f)
         if result:
             if result.group() == ".pdf":
-                print(load_pdf(f))
+                return load_pdf(f)
             if result.group() == ".docx":
-                print(load_docx(f))
+                return load_docx(f)
             if result.group() == ".odt":
-                print(load_odt(f))
+                return load_odt(f)
             else:
                 continue
         else:
             continue
 
+def check_ban(f, text):
+    dest = 'banWord_pass'
+    if banWord.main(text, "ban.txt") == "Success":
+        shutil.copy(f,dest)
+    else:
+        return 0
+    print(Fore.CYAN + "CV passed filter for banned words and has been added to " + dest)
+
 for filename in os.listdir(directory):
     f = os.path.join(directory, filename)
-    if_match(f)
+    text = if_match(f)
+    check_ban(f, text)
