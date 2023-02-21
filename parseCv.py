@@ -1,13 +1,14 @@
 import PyPDF2
 import docx
 from docx2pdf import convert
-from odf import text, teletype
+from odf import text
 from odf.opendocument import load
 import colorama
 from colorama import Fore
 import os
 import re
 import banWord
+import reqWord
 import shutil
 
 colorama.init(autoreset=True)
@@ -75,12 +76,25 @@ def if_match(f):
 def check_ban(f, text):
     dest = 'banWord_pass'
     if banWord.main(text, "ban.txt") == "Success":
+        os.remove(f)
+    else:
+        return 0
+    print(Fore.RED + "CV has failed the ban word filter" + dest)
+
+def check_req(f, text):
+    dest = 'banWord_pass'
+    if reqWord.main(text, "req.txt") == "Success":
         shutil.copy(f,dest)
     else:
         return 0
-    print(Fore.CYAN + "CV passed filter for banned words and has been added to " + dest)
+    print(Fore.CYAN + "CV has required words and has been added to " + dest)
 
 for filename in os.listdir(directory):
     f = os.path.join(directory, filename)
     text = if_match(f)
-    check_ban(f, text)
+    check_req(f, text)
+    
+for filename in os.listdir("banWord_pass"):
+    newf = os.path.join("banWord_pass", filename)
+    text = if_match(newf)
+    check_ban(newf, text)
